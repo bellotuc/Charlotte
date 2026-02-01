@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,9 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
   Alert,
-  AppState,
-  Animated,
-  Linking,
+  Modal,
+  Vibration,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,14 +23,8 @@ import * as WebBrowser from 'expo-web-browser';
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || '';
 
-// Always use full URL for API calls
-const getApiUrl = () => {
-  return API_URL;
-};
-
-const getWsUrl = () => {
-  return WS_URL.replace('https', 'wss').replace('http', 'ws');
-};
+const getApiUrl = () => API_URL;
+const getWsUrl = () => WS_URL.replace('https', 'wss').replace('http', 'ws');
 
 interface Message {
   id: string;
@@ -40,9 +32,19 @@ interface Message {
   content: string;
   message_type: 'text' | 'audio';
   sender_id: string;
+  sender_nickname?: string;
   created_at: string;
   expires_at: string;
 }
+
+interface SystemMessage {
+  id: string;
+  type: 'system';
+  content: string;
+  created_at: string;
+}
+
+type ChatItem = Message | SystemMessage;
 
 export default function ChatScreen() {
   const params = useLocalSearchParams();
@@ -51,15 +53,21 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   const sessionId = params.sessionId as string;
   const sessionCode = params.sessionCode as string;
   const [isPro, setIsPro] = useState(params.isPro === 'true');
   const [ttlMinutes, setTtlMinutes] = useState(parseInt(params.ttlMinutes as string) || 5);
-  const userId = params.userId as string;
-  const isCreator = params.isCreator === 'true';
+  const odaIsiCreator = params.isCreator === 'true';
+  const odaIUserId = params.userId as string;
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Nickname modal state
+  const [showNicknameModal, setShowNicknameModal] = useState(true);
+  const [nickname, setNickname] = useState('');
+  const [hasEnteredChat, setHasEnteredChat] = useState(false);
+
+  const [messages, setMessages] = useState<ChatItem[]>([]);
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -70,6 +78,25 @@ export default function ChatScreen() {
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every second for countdown
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setCurrentTime(Date.now());
+      // Remove expired messages
+      setMessages(prev => prev.filter(msg => {
+        if ('expires_at' in msg) {
+          return new Date(msg.expires_at).getTime() > Date.now();
+        }
+        return true; // Keep system messages
+      }));
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   // Anti-screenshot protection
   useEffect(() => {
@@ -77,32 +104,31 @@ export default function ChatScreen() {
       try {
         await ScreenCapture.preventScreenCaptureAsync();
       } catch (e) {
-        console.log('Screen capture prevention not supported on this platform');
+        console.log('Screen capture prevention not supported');
       }
     };
-
     preventScreenCapture();
-
     return () => {
       ScreenCapture.allowScreenCaptureAsync().catch(() => {});
     };
   }, []);
 
-  // WebSocket connection
-  useEffect(() => {
+  // Handle entering chat with nickname
+  const handleEnterChat = () => {
+    if (!nickname.trim()) {
+      Alert.alert('Atenção', 'Digite um apelido para entrar no chat');
+      return;
+    }
+    setShowNicknameModal(false);
+    setHasEnteredChat(true);
     connectWebSocket();
-    
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-    };
-  }, [sessionId]);
+    loadMessages();
+  };
 
+  // WebSocket connection
   const connectWebSocket = () => {
+    if (!hasEnteredChat && showNicknameModal) return;
+    
     try {
       const wsBaseUrl = getWsUrl();
       const wsUrl = `${wsBaseUrl}/ws/${sessionId}`;
@@ -112,32 +138,63 @@ export default function ChatScreen() {
       ws.onopen = () => {
         setIsConnected(true);
         console.log('WebSocket connected');
+        // Send join notification
+        ws.send(JSON.stringify({
+          type: 'join',
+          nickname: nickname,
+          sender_id: odaIUserId,
+        }));
       };
 
       ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'new_message') {
-          const msg = data.message;
-          msg.created_at = msg.created_at || new Date().toISOString();
-          msg.expires_at = msg.expires_at || new Date(Date.now() + ttlMinutes * 60000).toISOString();
+        try {
+          const data = JSON.parse(event.data);
           
-          setMessages(prev => {
-            if (prev.find(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-        } else if (data.type === 'participant_update') {
-          setParticipantCount(data.count);
-        } else if (data.type === 'session_upgraded') {
-          setIsPro(true);
-          setTtlMinutes(30);
-          Alert.alert('Upgrade realizado!', 'Agora suas mensagens duram 30 minutos!');
+          if (data.type === 'new_message') {
+            const msg = data.message;
+            msg.created_at = msg.created_at || new Date().toISOString();
+            msg.expires_at = msg.expires_at || new Date(Date.now() + ttlMinutes * 60000).toISOString();
+            
+            setMessages(prev => {
+              if (prev.find(m => 'id' in m && m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+            
+            // Vibrate on new message from others
+            if (msg.sender_id !== odaIUserId) {
+              Vibration.vibrate(100);
+            }
+          } else if (data.type === 'participant_update') {
+            const oldCount = participantCount;
+            setParticipantCount(data.count);
+            
+            // Show notification when someone joins
+            if (data.count > oldCount && data.nickname) {
+              addSystemMessage(`${data.nickname} entrou na conversa`);
+              Vibration.vibrate([0, 100, 50, 100]);
+            } else if (data.count < oldCount && data.nickname) {
+              addSystemMessage(`${data.nickname} saiu da conversa`);
+            }
+          } else if (data.type === 'user_joined') {
+            addSystemMessage(`${data.nickname || 'Alguém'} entrou na conversa`);
+            Vibration.vibrate([0, 100, 50, 100]);
+            setParticipantCount(prev => prev + 1);
+          } else if (data.type === 'user_left') {
+            addSystemMessage(`${data.nickname || 'Alguém'} saiu da conversa`);
+            setParticipantCount(prev => Math.max(1, prev - 1));
+          } else if (data.type === 'session_upgraded') {
+            setIsPro(true);
+            setTtlMinutes(30);
+            addSystemMessage('🎉 Sessão atualizada para PRO! Mensagens agora duram 30 minutos.');
+            Alert.alert('Upgrade realizado!', 'Suas mensagens agora duram 30 minutos!');
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message:', e);
         }
       };
 
       ws.onclose = () => {
         setIsConnected(false);
-        // Reconnect after 3 seconds
         reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
       };
 
@@ -151,10 +208,29 @@ export default function ChatScreen() {
     }
   };
 
-  // Load initial messages
+  const addSystemMessage = (content: string) => {
+    const sysMsg: SystemMessage = {
+      id: `sys-${Date.now()}`,
+      type: 'system',
+      content,
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, sysMsg]);
+  };
+
   useEffect(() => {
-    loadMessages();
-  }, [sessionId]);
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.send(JSON.stringify({
+          type: 'leave',
+          nickname: nickname,
+          sender_id: odaIUserId,
+        }));
+        wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    };
+  }, []);
 
   const loadMessages = async () => {
     try {
@@ -169,16 +245,6 @@ export default function ChatScreen() {
     }
   };
 
-  // Message expiration timer
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      setMessages(prev => prev.filter(msg => new Date(msg.expires_at) > now));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   // Audio setup
   useEffect(() => {
     Audio.setAudioModeAsync({
@@ -189,9 +255,7 @@ export default function ChatScreen() {
     });
 
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
+      if (soundRef.current) soundRef.current.unloadAsync();
     };
   }, []);
 
@@ -210,7 +274,8 @@ export default function ChatScreen() {
           session_id: sessionId,
           content: text,
           message_type: 'text',
-          sender_id: userId,
+          sender_id: odaIUserId,
+          sender_nickname: nickname,
         }),
       });
     } catch (e) {
@@ -227,10 +292,7 @@ export default function ChatScreen() {
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
@@ -259,9 +321,7 @@ export default function ChatScreen() {
     if (!recording) return;
 
     setIsRecording(false);
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-    }
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
 
     try {
       await recording.stopAndUnloadAsync();
@@ -269,7 +329,6 @@ export default function ChatScreen() {
       setRecording(null);
 
       if (uri && recordingDuration > 0) {
-        // Convert to base64 and send
         const response = await fetch(uri);
         const blob = await response.blob();
         const reader = new FileReader();
@@ -286,7 +345,8 @@ export default function ChatScreen() {
                 session_id: sessionId,
                 content: base64,
                 message_type: 'audio',
-                sender_id: userId,
+                sender_id: odaIUserId,
+                sender_nickname: nickname,
               }),
             });
           } catch (e) {
@@ -305,9 +365,7 @@ export default function ChatScreen() {
 
   const playAudio = async (audioBase64: string, messageId: string) => {
     try {
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-      }
+      if (soundRef.current) await soundRef.current.unloadAsync();
 
       if (playingAudioId === messageId) {
         setPlayingAudioId(null);
@@ -334,13 +392,13 @@ export default function ChatScreen() {
   };
 
   const copySessionLink = async () => {
-    // For share link, always use the full URL
     const baseUrl = Platform.OS === 'web' && typeof window !== 'undefined' 
       ? window.location.origin 
       : API_URL;
     const link = `${baseUrl}/?session=${sessionCode}`;
     await Clipboard.setStringAsync(link);
     Alert.alert('Link copiado!', 'Compartilhe com quem você quer conversar.');
+    setShowOptions(false);
   };
 
   const upgradeToProHandler = async () => {
@@ -363,30 +421,49 @@ export default function ChatScreen() {
       console.error('Error upgrading:', e);
       Alert.alert('Erro', 'Não foi possível processar o upgrade. Tente novamente.');
     }
+    setShowOptions(false);
   };
 
   const getTimeRemaining = (expiresAt: string) => {
-    const now = new Date();
-    const expires = new Date(expiresAt);
-    const diff = Math.max(0, Math.floor((expires.getTime() - now.getTime()) / 1000));
+    const now = Date.now();
+    const expires = new Date(expiresAt).getTime();
+    const diff = Math.max(0, Math.floor((expires - now) / 1000));
     const minutes = Math.floor(diff / 60);
     const seconds = diff % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return { minutes, seconds, total: diff, formatted: `${minutes}:${seconds.toString().padStart(2, '0')}` };
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isOwn = item.sender_id === userId;
-    const timeRemaining = getTimeRemaining(item.expires_at);
+  const getCountdownColor = (secondsLeft: number) => {
+    if (secondsLeft <= 30) return '#ef4444'; // Red - urgent
+    if (secondsLeft <= 60) return '#f59e0b'; // Orange - warning
+    return '#10b981'; // Green - safe
+  };
+
+  const renderMessage = ({ item }: { item: ChatItem }) => {
+    // System message
+    if ('type' in item && item.type === 'system') {
+      return (
+        <View style={styles.systemMessage}>
+          <Text style={styles.systemMessageText}>{item.content}</Text>
+        </View>
+      );
+    }
+
+    const msg = item as Message;
+    const isOwn = msg.sender_id === odaIUserId;
+    const timeInfo = getTimeRemaining(msg.expires_at);
+    const countdownColor = getCountdownColor(timeInfo.total);
 
     return (
       <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}>
-        {item.message_type === 'audio' ? (
-          <TouchableOpacity
-            style={styles.audioButton}
-            onPress={() => playAudio(item.content, item.id)}
-          >
+        {!isOwn && msg.sender_nickname && (
+          <Text style={styles.senderName}>{msg.sender_nickname}</Text>
+        )}
+        
+        {msg.message_type === 'audio' ? (
+          <TouchableOpacity style={styles.audioButton} onPress={() => playAudio(msg.content, msg.id)}>
             <Ionicons
-              name={playingAudioId === item.id ? 'pause' : 'play'}
+              name={playingAudioId === msg.id ? 'pause' : 'play'}
               size={24}
               color={isOwn ? '#000' : '#10b981'}
             />
@@ -404,12 +481,19 @@ export default function ChatScreen() {
           </TouchableOpacity>
         ) : (
           <Text style={[styles.messageText, isOwn && styles.ownMessageText]}>
-            {item.content}
+            {msg.content}
           </Text>
         )}
-        <View style={styles.messageFooter}>
-          <Ionicons name="time-outline" size={10} color={isOwn ? 'rgba(0,0,0,0.5)' : '#6b7280'} />
-          <Text style={[styles.timerText, isOwn && styles.ownTimerText]}>{timeRemaining}</Text>
+        
+        {/* Countdown timer */}
+        <View style={[styles.countdownContainer, { borderColor: countdownColor }]}>
+          <Ionicons name="time-outline" size={12} color={countdownColor} />
+          <Text style={[styles.countdownText, { color: countdownColor }]}>
+            {timeInfo.formatted}
+          </Text>
+          {timeInfo.total <= 30 && (
+            <Ionicons name="warning" size={12} color={countdownColor} style={{ marginLeft: 4 }} />
+          )}
         </View>
       </View>
     );
@@ -419,8 +503,39 @@ export default function ChatScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
+      {/* Nickname Modal */}
+      <Modal
+        visible={showNicknameModal}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.nicknameModal}>
+            <Text style={styles.modalTitle}>SEU APELIDO</Text>
+            <Text style={styles.modalSubtitle}>Como você quer ser chamado nesta conversa?</Text>
+            
+            <TextInput
+              style={styles.nicknameInput}
+              placeholder="Digite seu apelido..."
+              placeholderTextColor="#6b7280"
+              value={nickname}
+              onChangeText={setNickname}
+              maxLength={20}
+              autoFocus
+            />
+            
+            <TouchableOpacity style={styles.enterButton} onPress={handleEnterChat}>
+              <Text style={styles.enterButtonText}>ENTRAR NO CHAT</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.modalHint}>
+              Você pode mudar seu apelido clicando no nome no topo
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -438,7 +553,7 @@ export default function ChatScreen() {
             )}
           </View>
           <Text style={styles.headerSubtitle}>
-            {participantCount} {participantCount === 1 ? 'participante' : 'participantes'} • {ttlMinutes}min TTL
+            {participantCount} {participantCount === 1 ? 'participante' : 'participantes'} • {ttlMinutes}min
           </Text>
         </View>
 
@@ -487,9 +602,7 @@ export default function ChatScreen() {
           <View style={styles.recordingContainer}>
             <View style={styles.recordingIndicator}>
               <View style={styles.recordingDot} />
-              <Text style={styles.recordingText}>
-                Gravando... {recordingDuration}s
-              </Text>
+              <Text style={styles.recordingText}>Gravando... {recordingDuration}s</Text>
             </View>
             <TouchableOpacity style={styles.stopButton} onPress={stopRecording}>
               <Ionicons name="stop" size={28} color="#fff" />
@@ -502,7 +615,7 @@ export default function ChatScreen() {
             </TouchableOpacity>
             <TextInput
               style={styles.textInput}
-              placeholder="Digite sua mensagem..."
+              placeholder="Mensagem..."
               placeholderTextColor="#6b7280"
               value={inputText}
               onChangeText={setInputText}
@@ -527,6 +640,65 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  nicknameModal: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  nicknameInput: {
+    backgroundColor: '#0a0a0a',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  enterButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  enterButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  modalHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -605,6 +777,18 @@ const styles = StyleSheet.create({
     padding: 16,
     flexGrow: 1,
   },
+  systemMessage: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  systemMessageText: {
+    fontSize: 12,
+    color: '#6b7280',
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
   messageBubble: {
     maxWidth: '80%',
     padding: 12,
@@ -621,6 +805,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderBottomLeftRadius: 4,
   },
+  senderName: {
+    fontSize: 11,
+    color: '#10b981',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
   messageText: {
     color: '#fff',
     fontSize: 15,
@@ -629,18 +819,18 @@ const styles = StyleSheet.create({
   ownMessageText: {
     color: '#000',
   },
-  messageFooter: {
+  countdownContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
     gap: 4,
   },
-  timerText: {
-    fontSize: 10,
-    color: '#6b7280',
-  },
-  ownTimerText: {
-    color: 'rgba(0,0,0,0.5)',
+  countdownText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   audioButton: {
     flexDirection: 'row',
