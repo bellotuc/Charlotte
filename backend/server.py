@@ -258,8 +258,8 @@ async def create_upgrade_session(session_id: str):
             metadata={
                 "session_id": session_id
             },
-            success_url=f"https://private-chat-130.emergent.host/?upgraded=true&session={session['code']}",
-            cancel_url=f"https://private-chat-130.emergent.host/?session={session['code']}",
+            success_url=f"{APP_URL}/?upgraded=true&session={session['code']}",
+            cancel_url=f"{APP_URL}/?session={session['code']}",
         )
         
         return {
