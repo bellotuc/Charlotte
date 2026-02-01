@@ -27,7 +27,7 @@ STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 
 # Create the main app
 app = FastAPI()
-api_router = APIRouter()  # No prefix - ingress strips /api already
+api_router = APIRouter(prefix="/api")
 
 # WebSocket connection manager
 class ConnectionManager:
