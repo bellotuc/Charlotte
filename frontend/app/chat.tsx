@@ -208,7 +208,8 @@ export default function ChatScreen() {
     setInputText('');
 
     try {
-      await fetch(`${API_URL}/api/messages`, {
+      const baseUrl = getApiUrl();
+      await fetch(`${baseUrl}/api/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
