@@ -46,7 +46,8 @@ export default function HomeScreen() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`${API_URL}/api/sessions`, {
+      const baseUrl = getApiUrl();
+      const response = await fetch(`${baseUrl}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
