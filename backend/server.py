@@ -307,6 +307,15 @@ async def verify_upgrade(session_id: str):
         "message_ttl_minutes": session.get("message_ttl_minutes", 5)
     }
 
+# Health check endpoints (required for Kubernetes ingress)
+@app.get("/")
+async def root_health():
+    return {"status": "ok", "service": "chat-stealth-api"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 # WebSocket endpoint
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
