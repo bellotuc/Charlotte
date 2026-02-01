@@ -169,46 +169,6 @@ export default function HomeScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
-          ) : (
-            <View style={styles.joinContainer}>
-              <TextInput
-                style={styles.codeInput}
-                placeholder="CÓDIGO DA SESSÃO"
-                placeholderTextColor="#4b5563"
-                value={joinCode}
-                onChangeText={(text) => setJoinCode(text.toUpperCase())}
-                autoCapitalize="characters"
-                maxLength={6}
-                autoFocus
-              />
-              <View style={styles.joinActions}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setShowJoinInput(false);
-                    setJoinCode('');
-                    setError('');
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.joinButton}
-                  onPress={joinSession}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#000" size="small" />
-                  ) : (
-                    <Text style={styles.joinButtonText}>Entrar</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        </View>
 
         {/* Features */}
         <View style={styles.features}>
