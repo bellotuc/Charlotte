@@ -341,14 +341,19 @@ export default function ChatScreen() {
   };
 
   const copySessionLink = async () => {
-    const link = `${API_URL}/?session=${sessionCode}`;
+    // For share link, always use the full URL
+    const baseUrl = Platform.OS === 'web' && typeof window !== 'undefined' 
+      ? window.location.origin 
+      : API_URL;
+    const link = `${baseUrl}/?session=${sessionCode}`;
     await Clipboard.setStringAsync(link);
     Alert.alert('Link copiado!', 'Compartilhe com quem você quer conversar.');
   };
 
   const upgradeToProHandler = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/sessions/${sessionId}/upgrade`, {
+      const baseUrl = getApiUrl();
+      const response = await fetch(`${baseUrl}/api/sessions/${sessionId}/upgrade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
