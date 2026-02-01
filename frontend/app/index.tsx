@@ -193,18 +193,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textTransform: 'uppercase',
   },
-  title: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 4,
-  },
   titleAccent: {
-    fontSize: 48,
+    fontSize: 42,
     fontWeight: '900',
     color: '#10b981',
-    letterSpacing: 4,
-    marginTop: -8,
+    letterSpacing: 6,
   },
   subtitle: {
     fontSize: 14,
