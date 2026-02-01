@@ -91,7 +91,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.badge}>Protocolo de Privacidade Máxima</Text>
-          <Text style={styles.titleAccent}>CHARLLOTE</Text>
+          <Text style={styles.titleAccent}>CHARLOTTE</Text>
           <Text style={styles.subtitle}>
             Conversas que desaparecem. Sem capturas de tela. Sem rastros.
           </Text>
