@@ -90,7 +90,8 @@ export default function HomeScreen() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`${API_URL}/api/sessions/${joinCode.toUpperCase()}`);
+      const baseUrl = getApiUrl();
+      const response = await fetch(`${baseUrl}/api/sessions/${joinCode.toUpperCase()}`);
 
       if (!response.ok) {
         throw new Error('Session not found');
