@@ -165,7 +165,8 @@ export default function ChatScreen() {
 
   const loadMessages = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/sessions/${sessionId}/messages`);
+      const baseUrl = getApiUrl();
+      const response = await fetch(`${baseUrl}/api/sessions/${sessionId}/messages`);
       if (response.ok) {
         const data = await response.json();
         setMessages(data);
