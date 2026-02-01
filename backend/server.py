@@ -25,6 +25,9 @@ db = client[os.environ['DB_NAME']]
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 
+# App URL for redirects (use environment variable)
+APP_URL = os.environ.get('APP_URL', 'https://private-chat-130.emergent.host')
+
 # Create the main app
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
