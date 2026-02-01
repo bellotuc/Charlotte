@@ -316,38 +316,74 @@ async def root_health():
 async def health_check():
     return {"status": "healthy"}
 
+# Store user nicknames
+user_nicknames: Dict[str, Dict[str, str]] = {}  # session_id -> {sender_id: nickname}
+
 # WebSocket endpoint
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await manager.connect(websocket, session_id)
-    
-    # Send participant count update
-    count = manager.get_participant_count(session_id)
-    await manager.broadcast(session_id, {
-        "type": "participant_update",
-        "count": count
-    })
+    current_user_id = None
+    current_nickname = None
     
     try:
         while True:
             data = await websocket.receive_json()
             
-            if data.get("type") == "typing":
-                # Broadcast typing indicator
+            if data.get("type") == "join":
+                current_user_id = data.get("sender_id")
+                current_nickname = data.get("nickname", "Anônimo")
+                
+                # Store nickname
+                if session_id not in user_nicknames:
+                    user_nicknames[session_id] = {}
+                user_nicknames[session_id][current_user_id] = current_nickname
+                
+                # Broadcast join
+                count = manager.get_participant_count(session_id)
+                await manager.broadcast(session_id, {
+                    "type": "user_joined",
+                    "nickname": current_nickname,
+                    "sender_id": current_user_id,
+                    "count": count
+                })
+                
+            elif data.get("type") == "leave":
+                nickname = data.get("nickname", current_nickname or "Anônimo")
+                count = manager.get_participant_count(session_id)
+                await manager.broadcast(session_id, {
+                    "type": "user_left",
+                    "nickname": nickname,
+                    "count": count - 1
+                })
+                
+            elif data.get("type") == "typing":
                 await manager.broadcast(session_id, {
                     "type": "typing",
                     "sender_id": data.get("sender_id"),
+                    "nickname": data.get("nickname"),
                     "is_typing": data.get("is_typing", False)
                 })
+                
             elif data.get("type") == "ping":
                 await websocket.send_json({"type": "pong"})
+                
     except WebSocketDisconnect:
         manager.disconnect(websocket, session_id)
         count = manager.get_participant_count(session_id)
+        
+        # Broadcast leave
+        nickname = current_nickname or "Alguém"
         await manager.broadcast(session_id, {
-            "type": "participant_update",
+            "type": "user_left",
+            "nickname": nickname,
             "count": count
         })
+        
+        # Clean up nickname
+        if session_id in user_nicknames and current_user_id:
+            user_nicknames[session_id].pop(current_user_id, None)
+            
     except Exception as e:
         logging.error(f"WebSocket error: {e}")
         manager.disconnect(websocket, session_id)
