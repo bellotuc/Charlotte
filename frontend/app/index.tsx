@@ -58,8 +58,11 @@ export default function HomeScreen() {
       const session = await response.json();
       const userId = await generateUserId();
       
-      // Copy link to clipboard
-      const shareLink = `${API_URL}/?session=${session.code}`;
+      // Copy link to clipboard - use window.location.origin on web
+      const shareBaseUrl = Platform.OS === 'web' && typeof window !== 'undefined' 
+        ? window.location.origin 
+        : API_URL;
+      const shareLink = `${shareBaseUrl}/?session=${session.code}`;
       await Clipboard.setStringAsync(shareLink);
 
       router.push({
