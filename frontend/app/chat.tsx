@@ -25,21 +25,13 @@ import * as WebBrowser from 'expo-web-browser';
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || '';
 
-// Use relative URLs for web, full URLs for native
+// Always use full URL for API calls
 const getApiUrl = () => {
-  if (Platform.OS === 'web') {
-    return ''; // Use relative URLs on web
-  }
   return API_URL;
 };
 
 const getWsUrl = () => {
-  if (Platform.OS === 'web') {
-    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = typeof window !== 'undefined' ? window.location.host : '';
-    return `${protocol}//${host}`;
-  }
-  return WS_URL;
+  return WS_URL.replace('https', 'wss').replace('http', 'ws');
 };
 
 interface Message {
