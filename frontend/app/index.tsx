@@ -147,36 +147,28 @@ export default function HomeScreen() {
 
         {/* Actions */}
         <View style={styles.actions}>
-          {!showJoinInput ? (
-            <>
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={createSession}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#000" />
-                ) : (
-                  <>
-                    <Ionicons name="add-circle" size={24} color="#000" />
-                    <Text style={styles.primaryButtonText}>CRIAR SESSÃO GRÁTIS</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={createSession}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <>
+                <Ionicons name="add-circle" size={24} color="#000" />
+                <Text style={styles.primaryButtonText}>CRIAR SESSÃO GRÁTIS</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-              <Text style={styles.copyHint}>
-                <Ionicons name="copy-outline" size={14} color="#6b7280" />
-                {'  '}Link copiado automaticamente
-              </Text>
+          <Text style={styles.copyHint}>
+            <Ionicons name="copy-outline" size={14} color="#6b7280" />
+            {'  '}Link copiado automaticamente
+          </Text>
 
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => setShowJoinInput(true)}
-              >
-                <Ionicons name="enter-outline" size={20} color="#10b981" />
-                <Text style={styles.secondaryButtonText}>ENTRAR EM SESSÃO</Text>
-              </TouchableOpacity>
-            </>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        </View>
           ) : (
             <View style={styles.joinContainer}>
               <TextInput
