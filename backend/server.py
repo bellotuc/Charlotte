@@ -202,16 +202,27 @@ async def create_message(data: MessageCreate):
         "content": data.content,
         "message_type": data.message_type,
         "sender_id": data.sender_id,
+        "sender_nickname": data.sender_nickname,
         "created_at": now,
         "expires_at": now + timedelta(minutes=ttl_minutes)
     }
     
     await db.messages.insert_one(message)
     
-    # Broadcast to all connected clients
+    # Broadcast to all connected clients (convert datetime to string for JSON)
+    broadcast_msg = {
+        "id": message["id"],
+        "session_id": message["session_id"],
+        "content": message["content"],
+        "message_type": message["message_type"],
+        "sender_id": message["sender_id"],
+        "sender_nickname": message["sender_nickname"],
+        "created_at": message["created_at"].isoformat(),
+        "expires_at": message["expires_at"].isoformat()
+    }
     await manager.broadcast(data.session_id, {
         "type": "new_message",
-        "message": message
+        "message": broadcast_msg
     })
     
     return MessageResponse(**message)
