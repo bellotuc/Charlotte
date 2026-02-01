@@ -80,6 +80,7 @@ class MessageCreate(BaseModel):
     content: str
     message_type: str = "text"  # text or audio
     sender_id: str
+    sender_nickname: Optional[str] = None
 
 class MessageResponse(BaseModel):
     id: str
@@ -87,6 +88,7 @@ class MessageResponse(BaseModel):
     content: str
     message_type: str
     sender_id: str
+    sender_nickname: Optional[str] = None
     created_at: datetime
     expires_at: datetime
 
