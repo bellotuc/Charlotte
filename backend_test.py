@@ -330,8 +330,8 @@ class ChatStealthAPITester:
 
 def main():
     """Main test execution"""
-    # Use the production URL from frontend/.env
-    tester = ChatStealthAPITester("https://private-chat-130.emergent.host")
+    # Use localhost since external routing for /api/ endpoints has issues
+    tester = ChatStealthAPITester("http://localhost:8001")
     
     success = tester.run_full_test_suite()
     tester.print_detailed_results()
