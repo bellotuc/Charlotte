@@ -79,44 +79,6 @@ export default function HomeScreen() {
     }
   };
 
-  const joinSession = async () => {
-    if (!joinCode.trim()) {
-      setError('Digite o código da sessão');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
-      const baseUrl = getApiUrl();
-      const response = await fetch(`${baseUrl}/api/sessions/${joinCode.toUpperCase()}`);
-
-      if (!response.ok) {
-        throw new Error('Session not found');
-      }
-
-      const session = await response.json();
-      const userId = await generateUserId();
-
-      router.push({
-        pathname: '/chat',
-        params: {
-          sessionId: session.id,
-          sessionCode: session.code,
-          isPro: session.is_pro ? 'true' : 'false',
-          ttlMinutes: session.message_ttl_minutes.toString(),
-          userId,
-          isCreator: 'false',
-        },
-      });
-    } catch (err) {
-      setError('Sessão não encontrada ou expirada');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
