@@ -21,11 +21,8 @@ import * as Crypto from 'expo-crypto';
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const { width } = Dimensions.get('window');
 
-// Use relative URLs for web, full URLs for native
+// Always use full URL for API calls
 const getApiUrl = () => {
-  if (Platform.OS === 'web') {
-    return ''; // Use relative URLs on web (proxy handles /api)
-  }
   return API_URL;
 };
 
