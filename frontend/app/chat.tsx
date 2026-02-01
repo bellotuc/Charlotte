@@ -283,9 +283,10 @@ export default function ChatScreen() {
         
         reader.onloadend = async () => {
           const base64 = reader.result as string;
+          const baseUrl = getApiUrl();
           
           try {
-            await fetch(`${API_URL}/api/messages`, {
+            await fetch(`${baseUrl}/api/messages`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
