@@ -106,6 +106,7 @@ export default function ChatScreen() {
     try {
       const wsBaseUrl = getWsUrl();
       const wsUrl = `${wsBaseUrl}/ws/${sessionId}`;
+      console.log('Connecting to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
