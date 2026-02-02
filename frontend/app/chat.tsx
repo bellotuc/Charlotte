@@ -557,6 +557,10 @@ export default function ChatScreen() {
           </Text>
         </View>
 
+        <TouchableOpacity onPress={copySessionLink} style={styles.shareButton}>
+          <Ionicons name="share-social" size={22} color="#000" />
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => setShowOptions(!showOptions)} style={styles.optionsButton}>
           <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
         </TouchableOpacity>
@@ -566,8 +570,8 @@ export default function ChatScreen() {
       {showOptions && (
         <View style={styles.optionsMenu}>
           <TouchableOpacity style={styles.optionItem} onPress={copySessionLink}>
-            <Ionicons name="share-outline" size={20} color="#10b981" />
-            <Text style={styles.optionText}>Compartilhar link</Text>
+            <Ionicons name="link" size={20} color="#10b981" />
+            <Text style={styles.optionText}>Copiar link</Text>
           </TouchableOpacity>
           {!isPro && (
             <TouchableOpacity style={styles.optionItem} onPress={upgradeToProHandler}>
