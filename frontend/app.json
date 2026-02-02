@@ -6,27 +6,48 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "charlotte",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "owner": "SEU_USUARIO_EXPO",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.seudominio.charlotte",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Tirar fotos e gravar vídeos para enviar no chat",
         "NSMicrophoneUsageDescription": "Gravar mensagens de áudio",
-        "NSPhotoLibraryUsageDescription": "Selecionar fotos e vídeos da galeria"
+        "NSPhotoLibraryUsageDescription": "Selecionar fotos e vídeos da galeria",
+        "NSPhotoLibraryAddUsageDescription": "Salvar fotos e vídeos recebidos",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000"
+        "backgroundColor": "#000000"
       },
+      "package": "com.seudominio.charlotte",
+      "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_AUDIO"
       ]
     },
     "web": {
@@ -42,7 +63,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000"
+          "backgroundColor": "#000000"
         }
       ],
       [
@@ -57,10 +78,27 @@
         {
           "iCloudContainerEnvironment": "Production"
         }
+      ],
+      [
+        "expo-screen-capture",
+        {
+          "isEnabled": true
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "SEU_PROJECT_ID_AQUI"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/SEU_PROJECT_ID_AQUI"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }
