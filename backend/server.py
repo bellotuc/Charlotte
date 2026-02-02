@@ -201,13 +201,14 @@ async def create_message(data: MessageCreate):
         raise HTTPException(status_code=404, detail="Session not found")
     
     now = datetime.utcnow()
-    ttl_minutes = session.get("message_ttl_minutes", 5)
+    ttl_minutes = session.get("message_ttl_minutes", 10)
     
     message = {
         "id": str(uuid.uuid4()),
         "session_id": data.session_id,
         "content": data.content,
         "message_type": data.message_type,
+        "file_name": data.file_name,
         "sender_id": data.sender_id,
         "sender_nickname": data.sender_nickname,
         "created_at": now,
@@ -222,6 +223,7 @@ async def create_message(data: MessageCreate):
         "session_id": message["session_id"],
         "content": message["content"],
         "message_type": message["message_type"],
+        "file_name": message["file_name"],
         "sender_id": message["sender_id"],
         "sender_nickname": message["sender_nickname"],
         "created_at": message["created_at"].isoformat(),
