@@ -576,6 +576,116 @@ async def privacy_policy():
 </html>"""
     return HTMLResponse(content=privacy_html)
 
+# Support Page endpoint
+@app.get("/support", response_class=HTMLResponse)
+@app.get("/api/support", response_class=HTMLResponse)
+async def support_page():
+    """Serve the support page"""
+    support_html = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suporte - Charlotte</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #10b981; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+        h2 { color: #1a1a1a; margin-top: 30px; margin-bottom: 15px; font-size: 20px; border-bottom: 2px solid #10b981; padding-bottom: 5px; }
+        p { margin-bottom: 15px; }
+        ul { margin-left: 20px; margin-bottom: 15px; }
+        li { margin-bottom: 10px; }
+        .faq { background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 15px 0; }
+        .faq-q { font-weight: bold; color: #10b981; margin-bottom: 8px; }
+        .contact-box { background-color: #d1fae5; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center; }
+        .contact-box h3 { color: #065f46; margin-bottom: 15px; }
+        .email-btn { display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 10px; }
+        .email-btn:hover { background-color: #059669; }
+        .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💬 Central de Suporte</h1>
+        <p class="subtitle">Charlotte - Chat Privado e Seguro</p>
+
+        <h2>❓ Perguntas Frequentes</h2>
+        
+        <div class="faq">
+            <p class="faq-q">Como criar uma sessão de chat?</p>
+            <p>Abra o app e toque em "Criar Sessão Grátis". Um código único será gerado automaticamente. Compartilhe o link com quem você quer conversar.</p>
+        </div>
+
+        <div class="faq">
+            <p class="faq-q">As mensagens realmente desaparecem?</p>
+            <p>Sim! No modo gratuito, as mensagens são excluídas após 10 minutos. No modo Pro, após 60 minutos. Após a exclusão, não é possível recuperá-las.</p>
+        </div>
+
+        <div class="faq">
+            <p class="faq-q">Preciso criar uma conta?</p>
+            <p>Não! O Charlotte funciona sem cadastro. Basta escolher um apelido temporário para cada sessão.</p>
+        </div>
+
+        <div class="faq">
+            <p class="faq-q">O que é o modo Pro?</p>
+            <p>O modo Pro oferece: mensagens por 60 minutos, até 50 participantes, envio de fotos/vídeos/documentos pela câmera.</p>
+        </div>
+
+        <div class="faq">
+            <p class="faq-q">Como funciona o botão de auto-destruição?</p>
+            <p>Apenas o criador da sessão (anfitrião) pode usar este botão. Ao ativar, todas as mensagens são apagadas instantaneamente para todos os participantes.</p>
+        </div>
+
+        <div class="faq">
+            <p class="faq-q">Vocês armazenam minhas conversas?</p>
+            <p>Não permanentemente. As mensagens ficam no servidor apenas durante o tempo de vida configurado (10 ou 60 minutos) e são excluídas automaticamente.</p>
+        </div>
+
+        <div class="faq">
+            <p class="faq-q">Como enviar mensagens de áudio?</p>
+            <p>Toque no ícone de microfone ao lado do campo de mensagem. Segure para gravar e solte para enviar.</p>
+        </div>
+
+        <div class="faq">
+            <p class="faq-q">Posso usar em múltiplos dispositivos?</p>
+            <p>Sim! Basta acessar o mesmo link da sessão em qualquer dispositivo. Cada dispositivo será tratado como um participante separado.</p>
+        </div>
+
+        <h2>🔧 Problemas Comuns</h2>
+        
+        <ul>
+            <li><strong>App não conecta:</strong> Verifique sua conexão com a internet e tente novamente.</li>
+            <li><strong>Mensagens não aparecem:</strong> A sessão pode ter expirado. Crie uma nova sessão.</li>
+            <li><strong>Não consigo enviar áudio:</strong> Permita o acesso ao microfone nas configurações do seu dispositivo.</li>
+            <li><strong>Câmera não funciona:</strong> Permita o acesso à câmera nas configurações (recurso Pro).</li>
+        </ul>
+
+        <div class="contact-box">
+            <h3>📧 Precisa de Mais Ajuda?</h3>
+            <p>Nossa equipe está pronta para ajudar!</p>
+            <a href="mailto:mosaicohd@gmail.com?subject=Suporte Charlotte" class="email-btn">Enviar Email</a>
+            <p style="margin-top: 15px; font-size: 14px; color: #065f46;">mosaicohd@gmail.com</p>
+        </div>
+
+        <h2>📱 Informações do App</h2>
+        <ul>
+            <li><strong>Nome:</strong> Charlotte</li>
+            <li><strong>Versão:</strong> 1.0.0</li>
+            <li><strong>Desenvolvedor:</strong> MosaicoHD</li>
+            <li><strong>Website:</strong> charlotte.app</li>
+        </ul>
+
+        <div class="footer">
+            <p>© 2025 Charlotte. Todos os direitos reservados.</p>
+            <p style="margin-top: 10px;"><a href="/api/privacy" style="color: #10b981;">Política de Privacidade</a></p>
+        </div>
+    </div>
+</body>
+</html>"""
+    return HTMLResponse(content=support_html)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
