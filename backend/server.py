@@ -77,6 +77,7 @@ class SessionResponse(BaseModel):
     code: str
     is_pro: bool
     message_ttl_minutes: int
+    max_participants: int = 5
     created_at: datetime
     expires_at: datetime
 
