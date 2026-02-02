@@ -723,6 +723,12 @@ export default function ChatScreen() {
               <Text style={styles.optionText}>Upgrade para Pro (R$9,99)</Text>
             </TouchableOpacity>
           )}
+          {isCreator && (
+            <TouchableOpacity style={styles.destroyOption} onPress={destroySession}>
+              <Ionicons name="nuclear" size={20} color="#ef4444" />
+              <Text style={styles.destroyText}>Auto-Destruição</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
