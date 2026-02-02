@@ -154,8 +154,8 @@ export default function ChatScreen() {
     }
   };
 
-  // Secret code for Pro access
-  const SECRET_PRO_CODE = 'Bellotuc@210782';
+  // Secret code for Pro access (from environment variable)
+  const SECRET_PRO_CODE = process.env.EXPO_PUBLIC_SECRET_PRO_CODE || '';
 
   // Handle entering chat with nickname
   const handleEnterChat = async () => {
