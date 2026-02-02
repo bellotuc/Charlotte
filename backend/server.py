@@ -26,9 +26,7 @@ stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 
 # App URL for redirects (required environment variable)
-APP_URL = os.environ.get('APP_URL')
-if not APP_URL:
-    APP_URL = 'https://private-chat-130.emergent.host'  # Default for this deployment
+APP_URL = os.environ.get('APP_URL', '')
 
 # Create the main app
 app = FastAPI()
@@ -356,8 +354,8 @@ async def destroy_session(session_id: str):
     
     return {"status": "destroyed", "session_id": session_id}
 
-# Secret Pro upgrade code
-SECRET_PRO_CODE = "Bellotuc@210782"
+# Secret Pro upgrade code (from environment variable)
+SECRET_PRO_CODE = os.environ.get('SECRET_PRO_CODE', '')
 
 class SecretUpgradeRequest(BaseModel):
     secret_code: str
