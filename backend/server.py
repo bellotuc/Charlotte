@@ -148,7 +148,7 @@ async def create_session(data: SessionCreate):
         "id": session_id,
         "code": code,
         "is_pro": False,
-        "message_ttl_minutes": 5,  # Free tier: 5 minutes
+        "message_ttl_minutes": 10,  # Free tier: 10 minutes
         "created_at": now,
         "expires_at": now + timedelta(hours=24),  # Session expires in 24h
         "creator_nickname": data.nickname
