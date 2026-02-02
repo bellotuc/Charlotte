@@ -1,22 +1,33 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Charlotte",
+    "slug": "charlotte-chat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "charlotte",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Tirar fotos e gravar vídeos para enviar no chat",
+        "NSMicrophoneUsageDescription": "Gravar mensagens de áudio",
+        "NSPhotoLibraryUsageDescription": "Selecionar fotos e vídeos da galeria"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -32,6 +43,19 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Selecionar fotos para enviar no chat",
+          "cameraPermission": "Tirar fotos e gravar vídeos"
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
         }
       ]
     ],
