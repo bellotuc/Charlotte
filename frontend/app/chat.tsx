@@ -483,6 +483,39 @@ export default function ChatScreen() {
     setShowAttachMenu(false);
   };
 
+  // Auto-destruct session (only for host/creator)
+  const destroySession = async () => {
+    Alert.alert(
+      '💥 Auto-Destruição',
+      'Tem certeza? Isso vai apagar TODAS as mensagens e encerrar a conversa para todos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'DESTRUIR',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const baseUrl = getApiUrl();
+              const response = await fetch(`${baseUrl}/api/sessions/${sessionId}/destroy`, {
+                method: 'DELETE',
+              });
+              
+              if (response.ok) {
+                router.replace('/');
+              } else {
+                Alert.alert('Erro', 'Não foi possível destruir a sessão.');
+              }
+            } catch (e) {
+              console.error('Error destroying session:', e);
+              Alert.alert('Erro', 'Falha ao destruir sessão.');
+            }
+          }
+        }
+      ]
+    );
+    setShowOptions(false);
+  };
+
   const playAudio = async (audioBase64: string, messageId: string) => {
     try {
       if (soundRef.current) await soundRef.current.unloadAsync();
