@@ -67,6 +67,7 @@ export default function ChatScreen() {
   const [ttlMinutes, setTtlMinutes] = useState(parseInt(params.ttlMinutes as string) || 10);
   const [maxParticipants, setMaxParticipants] = useState(isPro ? 50 : 5);
   const odaIUserId = params.userId as string;
+  const isCreator = params.isCreator === 'true'; // Host who created the session
 
   // Nickname modal state
   const [showNicknameModal, setShowNicknameModal] = useState(true);
