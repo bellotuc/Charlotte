@@ -333,6 +333,29 @@ async def verify_upgrade(session_id: str):
         "message_ttl_minutes": session.get("message_ttl_minutes", 5)
     }
 
+@api_router.delete("/sessions/{session_id}/destroy")
+async def destroy_session(session_id: str):
+    """Auto-destruct session - only for session creator (host)"""
+    session = await db.sessions.find_one({"id": session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Delete all messages from this session
+    await db.messages.delete_many({"session_id": session_id})
+    
+    # Delete the session
+    await db.sessions.delete_one({"id": session_id})
+    
+    # Broadcast destruction to all connected clients
+    await manager.broadcast(session_id, {
+        "type": "session_destroyed",
+        "message": "A sessão foi encerrada pelo anfitrião."
+    })
+    
+    logging.info(f"Session {session_id} was destroyed by host")
+    
+    return {"status": "destroyed", "session_id": session_id}
+
 # Health check endpoints (required for Kubernetes ingress)
 @app.get("/")
 async def root_health():
