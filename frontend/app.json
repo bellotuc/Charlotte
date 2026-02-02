@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.charlotte.chat",
+      "bundleIdentifier": "app.charlotte",
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
@@ -36,7 +36,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.charlotte.chat",
+      "package": "app.charlotte",
       "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "permissions": [
