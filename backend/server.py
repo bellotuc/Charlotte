@@ -348,6 +348,26 @@ user_nicknames: Dict[str, Dict[str, str]] = {}  # session_id -> {sender_id: nick
 # WebSocket endpoint
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    # Check session exists and participant limit
+    session = await db.sessions.find_one({"id": session_id})
+    if not session:
+        await websocket.close(code=4004, reason="Session not found")
+        return
+    
+    max_participants = session.get("max_participants", 5)
+    current_count = manager.get_participant_count(session_id)
+    
+    if current_count >= max_participants:
+        await websocket.accept()
+        await websocket.send_json({
+            "type": "error",
+            "code": "SESSION_FULL",
+            "message": f"Sessão lotada! Máximo de {max_participants} participantes.",
+            "max_participants": max_participants
+        })
+        await websocket.close(code=4003, reason="Session full")
+        return
+    
     await manager.connect(websocket, session_id)
     current_user_id = None
     current_nickname = None
@@ -365,13 +385,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     user_nicknames[session_id] = {}
                 user_nicknames[session_id][current_user_id] = current_nickname
                 
-                # Broadcast join
+                # Broadcast join with max participants info
                 count = manager.get_participant_count(session_id)
                 await manager.broadcast(session_id, {
                     "type": "user_joined",
                     "nickname": current_nickname,
                     "sender_id": current_user_id,
-                    "count": count
+                    "count": count,
+                    "max_participants": max_participants
                 })
                 
             elif data.get("type") == "leave":
