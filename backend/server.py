@@ -501,6 +501,81 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 # Include router
 app.include_router(api_router)
 
+# Privacy Policy endpoint
+@app.get("/privacy", response_class=HTMLResponse)
+@app.get("/api/privacy", response_class=HTMLResponse)
+async def privacy_policy():
+    """Serve the privacy policy page"""
+    privacy_html = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidade - Charlotte</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #10b981; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+        h2 { color: #1a1a1a; margin-top: 30px; margin-bottom: 15px; font-size: 20px; border-bottom: 2px solid #10b981; padding-bottom: 5px; }
+        p { margin-bottom: 15px; text-align: justify; }
+        ul { margin-left: 20px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .highlight { background-color: #d1fae5; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981; }
+        .contact { background-color: #f0f0f0; padding: 20px; border-radius: 8px; margin-top: 30px; }
+        .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+        a { color: #10b981; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Política de Privacidade</h1>
+        <p class="subtitle">Charlotte - Chat Privado e Seguro<br>Última atualização: Fevereiro de 2025</p>
+        <div class="highlight"><strong>Resumo:</strong> O Charlotte foi projetado com privacidade em primeiro lugar. Não coletamos dados pessoais, não exigimos cadastro e todas as mensagens são automaticamente apagadas.</div>
+        <h2>1. Introdução</h2>
+        <p>O Charlotte ("nós", "nosso" ou "aplicativo") é um serviço de mensagens instantâneas focado em privacidade. Esta Política de Privacidade explica como tratamos as informações quando você usa nosso aplicativo.</p>
+        <h2>2. Informações que Coletamos</h2>
+        <p><strong>Coletamos o mínimo de informações possível:</strong></p>
+        <ul>
+            <li><strong>Apelido temporário:</strong> Um nome escolhido por você para identificação durante a sessão.</li>
+            <li><strong>Conteúdo das mensagens:</strong> Textos, áudios, fotos, vídeos e documentos. Todo conteúdo é temporário e automaticamente excluído.</li>
+            <li><strong>Informações de pagamento (Pro):</strong> Processadas pelo Stripe. Não armazenamos dados de cartão.</li>
+        </ul>
+        <div class="highlight"><strong>⚠️ Importante:</strong> NÃO coletamos seu nome real, email, telefone, localização ou qualquer informação pessoal identificável.</div>
+        <h2>3. Retenção e Exclusão de Dados</h2>
+        <ul>
+            <li><strong>Modo Gratuito:</strong> Mensagens excluídas após 10 minutos</li>
+            <li><strong>Modo Pro:</strong> Mensagens excluídas após 60 minutos</li>
+        </ul>
+        <h2>4. Compartilhamento</h2>
+        <p><strong>Não vendemos ou compartilhamos suas informações</strong>, exceto: Stripe (pagamentos) e requisições legais.</p>
+        <h2>5. Segurança</h2>
+        <ul>
+            <li>Comunicação criptografada (HTTPS/WSS)</li>
+            <li>Auto-destruição automática de dados</li>
+            <li>Sem armazenamento permanente</li>
+        </ul>
+        <h2>6. Menores de Idade</h2>
+        <p>O Charlotte é destinado a usuários maiores de 17 anos.</p>
+        <h2>7. Permissões</h2>
+        <ul>
+            <li><strong>Câmera:</strong> Fotos e vídeos (Pro)</li>
+            <li><strong>Microfone:</strong> Mensagens de áudio</li>
+            <li><strong>Galeria:</strong> Selecionar mídia</li>
+        </ul>
+        <h2>8. Lei Aplicável</h2>
+        <p>Esta política é regida pelas leis do Brasil, incluindo a LGPD (Lei nº 13.709/2018).</p>
+        <div class="contact">
+            <h2 style="margin-top: 0; border: none;">Contato</h2>
+            <p><strong>Email:</strong> mosaicohd@gmail.com<br><strong>Website:</strong> charlotte.app</p>
+        </div>
+        <div class="footer"><p>© 2025 Charlotte. Todos os direitos reservados.</p></div>
+    </div>
+</body>
+</html>"""
+    return HTMLResponse(content=privacy_html)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
