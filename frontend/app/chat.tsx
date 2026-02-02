@@ -239,6 +239,12 @@ export default function ChatScreen() {
             Alert.alert('Upgrade realizado!', 'Mensagens duram 60 minutos e até 50 participantes!');
           } else if (data.type === 'participant_update') {
             setParticipantCount(data.count);
+          } else if (data.type === 'session_destroyed') {
+            Alert.alert(
+              '💥 Sessão Encerrada',
+              data.message || 'A sessão foi destruída pelo anfitrião.',
+              [{ text: 'OK', onPress: () => router.replace('/') }]
+            );
           }
         } catch (e) {
           console.error('Error parsing WebSocket message:', e);
