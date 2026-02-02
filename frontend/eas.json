@@ -31,7 +31,7 @@
       "ios": {
         "appleId": "mosaicohd@gmail.com",
         "ascAppId": "SEU_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "SEU_TEAM_ID"
+        "appleTeamId": "VVDYYB8DD2"
       },
       "android": {
         "serviceAccountKeyPath": "./google-services.json",
