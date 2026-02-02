@@ -65,6 +65,7 @@ export default function ChatScreen() {
   const sessionCode = params.sessionCode as string;
   const [isPro, setIsPro] = useState(params.isPro === 'true');
   const [ttlMinutes, setTtlMinutes] = useState(parseInt(params.ttlMinutes as string) || 10);
+  const [maxParticipants, setMaxParticipants] = useState(isPro ? 50 : 5);
   const odaIUserId = params.userId as string;
 
   // Nickname modal state
