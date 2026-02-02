@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   Vibration,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,9 @@ import * as Clipboard from 'expo-clipboard';
 import { Audio } from 'expo-av';
 import * as ScreenCapture from 'expo-screen-capture';
 import * as WebBrowser from 'expo-web-browser';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || '';
@@ -30,7 +34,8 @@ interface Message {
   id: string;
   session_id: string;
   content: string;
-  message_type: 'text' | 'audio';
+  message_type: 'text' | 'audio' | 'image' | 'video' | 'document';
+  file_name?: string;
   sender_id: string;
   sender_nickname?: string;
   created_at: string;
@@ -54,12 +59,12 @@ export default function ChatScreen() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const sessionId = params.sessionId as string;
   const sessionCode = params.sessionCode as string;
   const [isPro, setIsPro] = useState(params.isPro === 'true');
-  const [ttlMinutes, setTtlMinutes] = useState(parseInt(params.ttlMinutes as string) || 5);
-  const odaIsiCreator = params.isCreator === 'true';
+  const [ttlMinutes, setTtlMinutes] = useState(parseInt(params.ttlMinutes as string) || 10);
   const odaIUserId = params.userId as string;
 
   // Nickname modal state
@@ -74,22 +79,26 @@ export default function ChatScreen() {
   const [participantCount, setParticipantCount] = useState(1);
   const [isConnected, setIsConnected] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  
+  // Typing indicator
+  const [typingUsers, setTypingUsers] = useState<{[key: string]: string}>({});
+  const [isTyping, setIsTyping] = useState(false);
 
   // Update current time every second for countdown
   useEffect(() => {
     timerRef.current = setInterval(() => {
       setCurrentTime(Date.now());
-      // Remove expired messages
       setMessages(prev => prev.filter(msg => {
         if ('expires_at' in msg) {
           return new Date(msg.expires_at).getTime() > Date.now();
         }
-        return true; // Keep system messages
+        return true;
       }));
     }, 1000);
 
@@ -113,6 +122,36 @@ export default function ChatScreen() {
     };
   }, []);
 
+  // Handle typing indicator
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+    
+    if (!isTyping && text.length > 0) {
+      setIsTyping(true);
+      sendTypingIndicator(true);
+    }
+    
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      sendTypingIndicator(false);
+    }, 2000);
+  };
+
+  const sendTypingIndicator = (typing: boolean) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'typing',
+        sender_id: odaIUserId,
+        nickname: nickname,
+        is_typing: typing,
+      }));
+    }
+  };
+
   // Handle entering chat with nickname
   const handleEnterChat = () => {
     if (!nickname.trim()) {
@@ -132,13 +171,10 @@ export default function ChatScreen() {
     try {
       const wsBaseUrl = getWsUrl();
       const wsUrl = `${wsBaseUrl}/ws/${sessionId}`;
-      console.log('Connecting to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         setIsConnected(true);
-        console.log('WebSocket connected');
-        // Send join notification
         ws.send(JSON.stringify({
           type: 'join',
           nickname: nickname,
@@ -160,33 +196,35 @@ export default function ChatScreen() {
               return [...prev, msg];
             });
             
-            // Vibrate on new message from others
             if (msg.sender_id !== odaIUserId) {
               Vibration.vibrate(100);
             }
-          } else if (data.type === 'participant_update') {
-            const oldCount = participantCount;
-            setParticipantCount(data.count);
-            
-            // Show notification when someone joins
-            if (data.count > oldCount && data.nickname) {
-              addSystemMessage(`${data.nickname} entrou na conversa`);
-              Vibration.vibrate([0, 100, 50, 100]);
-            } else if (data.count < oldCount && data.nickname) {
-              addSystemMessage(`${data.nickname} saiu da conversa`);
-            }
           } else if (data.type === 'user_joined') {
-            addSystemMessage(`${data.nickname || 'Alguém'} entrou na conversa`);
+            addSystemMessage(`🟢 ${data.nickname || 'Alguém'} entrou na conversa`);
             Vibration.vibrate([0, 100, 50, 100]);
-            setParticipantCount(prev => prev + 1);
+            if (data.count) setParticipantCount(data.count);
           } else if (data.type === 'user_left') {
-            addSystemMessage(`${data.nickname || 'Alguém'} saiu da conversa`);
-            setParticipantCount(prev => Math.max(1, prev - 1));
+            addSystemMessage(`🔴 ${data.nickname || 'Alguém'} saiu da conversa`);
+            if (data.count) setParticipantCount(data.count);
+          } else if (data.type === 'typing') {
+            if (data.sender_id !== odaIUserId) {
+              if (data.is_typing) {
+                setTypingUsers(prev => ({...prev, [data.sender_id]: data.nickname || 'Alguém'}));
+              } else {
+                setTypingUsers(prev => {
+                  const newState = {...prev};
+                  delete newState[data.sender_id];
+                  return newState;
+                });
+              }
+            }
           } else if (data.type === 'session_upgraded') {
             setIsPro(true);
-            setTtlMinutes(30);
-            addSystemMessage('🎉 Sessão atualizada para PRO! Mensagens agora duram 30 minutos.');
-            Alert.alert('Upgrade realizado!', 'Suas mensagens agora duram 30 minutos!');
+            setTtlMinutes(60);
+            addSystemMessage('🎉 Sessão atualizada para PRO! Mensagens agora duram 60 minutos.');
+            Alert.alert('Upgrade realizado!', 'Suas mensagens agora duram 60 minutos!');
+          } else if (data.type === 'participant_update') {
+            setParticipantCount(data.count);
           }
         } catch (e) {
           console.error('Error parsing WebSocket message:', e);
@@ -229,6 +267,7 @@ export default function ChatScreen() {
         wsRef.current.close();
       }
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, []);
 
@@ -259,12 +298,7 @@ export default function ChatScreen() {
     };
   }, []);
 
-  const sendMessage = async () => {
-    if (!inputText.trim()) return;
-
-    const text = inputText.trim();
-    setInputText('');
-
+  const sendMessage = async (content: string, messageType: string = 'text', fileName?: string) => {
     try {
       const baseUrl = getApiUrl();
       await fetch(`${baseUrl}/api/messages`, {
@@ -272,23 +306,32 @@ export default function ChatScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: sessionId,
-          content: text,
-          message_type: 'text',
+          content: content,
+          message_type: messageType,
+          file_name: fileName,
           sender_id: odaIUserId,
           sender_nickname: nickname,
         }),
       });
     } catch (e) {
       console.error('Error sending message:', e);
-      setInputText(text);
     }
+  };
+
+  const handleSendText = async () => {
+    if (!inputText.trim()) return;
+    const text = inputText.trim();
+    setInputText('');
+    setIsTyping(false);
+    sendTypingIndicator(false);
+    await sendMessage(text, 'text');
   };
 
   const startRecording = async () => {
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== 'granted') {
-        Alert.alert('Permissão necessária', 'Permita o acesso ao microfone para gravar áudios.');
+        Alert.alert('Permissão necessária', 'Permita o acesso ao microfone.');
         return;
       }
 
@@ -313,7 +356,6 @@ export default function ChatScreen() {
       }, 1000);
     } catch (e) {
       console.error('Error starting recording:', e);
-      Alert.alert('Erro', 'Não foi possível iniciar a gravação');
     }
   };
 
@@ -329,38 +371,96 @@ export default function ChatScreen() {
       setRecording(null);
 
       if (uri && recordingDuration > 0) {
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        
-        reader.onloadend = async () => {
-          const base64 = reader.result as string;
-          const baseUrl = getApiUrl();
-          
-          try {
-            await fetch(`${baseUrl}/api/messages`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                session_id: sessionId,
-                content: base64,
-                message_type: 'audio',
-                sender_id: odaIUserId,
-                sender_nickname: nickname,
-              }),
-            });
-          } catch (e) {
-            console.error('Error sending audio:', e);
-          }
-        };
-        
-        reader.readAsDataURL(blob);
+        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+        const dataUri = `data:audio/m4a;base64,${base64}`;
+        await sendMessage(dataUri, 'audio');
       }
     } catch (e) {
       console.error('Error stopping recording:', e);
     }
     
     setRecordingDuration(0);
+  };
+
+  // PRO Features - Camera
+  const takePhoto = async () => {
+    if (!isPro) {
+      Alert.alert('Recurso Pro', 'Faça upgrade para enviar fotos e vídeos.');
+      return;
+    }
+
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso à câmera.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      await sendMessage(dataUri, 'image');
+    }
+    setShowAttachMenu(false);
+  };
+
+  const takeVideo = async () => {
+    if (!isPro) {
+      Alert.alert('Recurso Pro', 'Faça upgrade para enviar fotos e vídeos.');
+      return;
+    }
+
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso à câmera.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      videoMaxDuration: 30,
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, { 
+        encoding: FileSystem.EncodingType.Base64 
+      });
+      const dataUri = `data:video/mp4;base64,${base64}`;
+      await sendMessage(dataUri, 'video');
+    }
+    setShowAttachMenu(false);
+  };
+
+  const pickDocument = async () => {
+    if (!isPro) {
+      Alert.alert('Recurso Pro', 'Faça upgrade para enviar documentos.');
+      return;
+    }
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const file = result.assets[0];
+        const base64 = await FileSystem.readAsStringAsync(file.uri, { 
+          encoding: FileSystem.EncodingType.Base64 
+        });
+        const mimeType = file.mimeType || 'application/octet-stream';
+        const dataUri = `data:${mimeType};base64,${base64}`;
+        await sendMessage(dataUri, 'document', file.name);
+      }
+    } catch (e) {
+      console.error('Error picking document:', e);
+    }
+    setShowAttachMenu(false);
   };
 
   const playAudio = async (audioBase64: string, messageId: string) => {
@@ -414,12 +514,10 @@ export default function ChatScreen() {
         if (data.checkout_url) {
           await WebBrowser.openBrowserAsync(data.checkout_url);
         }
-      } else {
-        throw new Error('Failed to create checkout');
       }
     } catch (e) {
       console.error('Error upgrading:', e);
-      Alert.alert('Erro', 'Não foi possível processar o upgrade. Tente novamente.');
+      Alert.alert('Erro', 'Não foi possível processar o upgrade.');
     }
     setShowOptions(false);
   };
@@ -434,13 +532,16 @@ export default function ChatScreen() {
   };
 
   const getCountdownColor = (secondsLeft: number) => {
-    if (secondsLeft <= 30) return '#ef4444'; // Red - urgent
-    if (secondsLeft <= 60) return '#f59e0b'; // Orange - warning
-    return '#10b981'; // Green - safe
+    if (secondsLeft <= 30) return '#ef4444';
+    if (secondsLeft <= 60) return '#f59e0b';
+    return '#10b981';
   };
 
+  const typingText = Object.values(typingUsers).length > 0 
+    ? `${Object.values(typingUsers).join(', ')} digitando...` 
+    : null;
+
   const renderMessage = ({ item }: { item: ChatItem }) => {
-    // System message
     if ('type' in item && item.type === 'system') {
       return (
         <View style={styles.systemMessage}>
@@ -454,67 +555,66 @@ export default function ChatScreen() {
     const timeInfo = getTimeRemaining(msg.expires_at);
     const countdownColor = getCountdownColor(timeInfo.total);
 
+    const renderContent = () => {
+      switch (msg.message_type) {
+        case 'audio':
+          return (
+            <TouchableOpacity style={styles.audioButton} onPress={() => playAudio(msg.content, msg.id)}>
+              <Ionicons name={playingAudioId === msg.id ? 'pause' : 'play'} size={24} color={isOwn ? '#000' : '#10b981'} />
+              <View style={styles.audioWaveform}>
+                {[...Array(12)].map((_, i) => (
+                  <View key={i} style={[styles.waveBar, { height: Math.random() * 16 + 8, backgroundColor: isOwn ? '#000' : '#10b981' }]} />
+                ))}
+              </View>
+            </TouchableOpacity>
+          );
+        case 'image':
+          return (
+            <Image source={{ uri: msg.content }} style={styles.messageImage} resizeMode="cover" />
+          );
+        case 'video':
+          return (
+            <View style={styles.videoContainer}>
+              <Ionicons name="videocam" size={40} color={isOwn ? '#000' : '#10b981'} />
+              <Text style={[styles.videoText, isOwn && { color: '#000' }]}>Vídeo</Text>
+            </View>
+          );
+        case 'document':
+          return (
+            <View style={styles.documentContainer}>
+              <Ionicons name="document" size={32} color={isOwn ? '#000' : '#10b981'} />
+              <Text style={[styles.documentText, isOwn && { color: '#000' }]} numberOfLines={2}>
+                {msg.file_name || 'Documento'}
+              </Text>
+            </View>
+          );
+        default:
+          return <Text style={[styles.messageText, isOwn && styles.ownMessageText]}>{msg.content}</Text>;
+      }
+    };
+
     return (
       <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}>
         {!isOwn && msg.sender_nickname && (
           <Text style={styles.senderName}>{msg.sender_nickname}</Text>
         )}
-        
-        {msg.message_type === 'audio' ? (
-          <TouchableOpacity style={styles.audioButton} onPress={() => playAudio(msg.content, msg.id)}>
-            <Ionicons
-              name={playingAudioId === msg.id ? 'pause' : 'play'}
-              size={24}
-              color={isOwn ? '#000' : '#10b981'}
-            />
-            <View style={styles.audioWaveform}>
-              {[...Array(12)].map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.waveBar,
-                    { height: Math.random() * 16 + 8, backgroundColor: isOwn ? '#000' : '#10b981' }
-                  ]}
-                />
-              ))}
-            </View>
-          </TouchableOpacity>
-        ) : (
-          <Text style={[styles.messageText, isOwn && styles.ownMessageText]}>
-            {msg.content}
-          </Text>
-        )}
-        
-        {/* Countdown timer */}
+        {renderContent()}
         <View style={[styles.countdownContainer, { borderColor: countdownColor }]}>
           <Ionicons name="time-outline" size={12} color={countdownColor} />
-          <Text style={[styles.countdownText, { color: countdownColor }]}>
-            {timeInfo.formatted}
-          </Text>
-          {timeInfo.total <= 30 && (
-            <Ionicons name="warning" size={12} color={countdownColor} style={{ marginLeft: 4 }} />
-          )}
+          <Text style={[styles.countdownText, { color: countdownColor }]}>{timeInfo.formatted}</Text>
         </View>
       </View>
     );
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Nickname Modal */}
-      <Modal
-        visible={showNicknameModal}
-        transparent
-        animationType="fade"
-      >
+      <Modal visible={showNicknameModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.nicknameModal}>
             <Text style={styles.modalTitle}>SEU APELIDO</Text>
-            <Text style={styles.modalSubtitle}>Como você quer ser chamado nesta conversa?</Text>
-            
+            <Text style={styles.modalSubtitle}>Como você quer ser chamado?</Text>
             <TextInput
               style={styles.nicknameInput}
               placeholder="Digite seu apelido..."
@@ -524,14 +624,9 @@ export default function ChatScreen() {
               maxLength={20}
               autoFocus
             />
-            
             <TouchableOpacity style={styles.enterButton} onPress={handleEnterChat}>
               <Text style={styles.enterButtonText}>ENTRAR NO CHAT</Text>
             </TouchableOpacity>
-            
-            <Text style={styles.modalHint}>
-              Você pode mudar seu apelido clicando no nome no topo
-            </Text>
           </View>
         </View>
       </Modal>
@@ -546,11 +641,7 @@ export default function ChatScreen() {
           <View style={styles.headerTitleRow}>
             <View style={[styles.statusDot, isConnected && styles.statusDotActive]} />
             <Text style={styles.headerTitle}>#{sessionCode}</Text>
-            {isPro && (
-              <View style={styles.proBadge}>
-                <Text style={styles.proBadgeText}>PRO</Text>
-              </View>
-            )}
+            {isPro && <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View>}
           </View>
           <Text style={styles.headerSubtitle}>
             {participantCount} {participantCount === 1 ? 'participante' : 'participantes'} • {ttlMinutes}min
@@ -582,6 +673,13 @@ export default function ChatScreen() {
         </View>
       )}
 
+      {/* Typing Indicator */}
+      {typingText && (
+        <View style={styles.typingIndicator}>
+          <Text style={styles.typingText}>{typingText}</Text>
+        </View>
+      )}
+
       {/* Messages */}
       <FlatList
         ref={flatListRef}
@@ -595,10 +693,36 @@ export default function ChatScreen() {
           <View style={styles.emptyState}>
             <Ionicons name="chatbubbles-outline" size={48} color="#333" />
             <Text style={styles.emptyText}>Nenhuma mensagem ainda</Text>
-            <Text style={styles.emptySubtext}>Comece a conversar de forma segura!</Text>
           </View>
         }
       />
+
+      {/* Attach Menu */}
+      {showAttachMenu && (
+        <View style={styles.attachMenu}>
+          <TouchableOpacity style={styles.attachOption} onPress={takePhoto}>
+            <View style={[styles.attachIcon, { backgroundColor: isPro ? '#10b981' : '#4b5563' }]}>
+              <Ionicons name="camera" size={24} color="#fff" />
+            </View>
+            <Text style={styles.attachText}>Foto</Text>
+            {!isPro && <Text style={styles.proLabel}>PRO</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.attachOption} onPress={takeVideo}>
+            <View style={[styles.attachIcon, { backgroundColor: isPro ? '#8b5cf6' : '#4b5563' }]}>
+              <Ionicons name="videocam" size={24} color="#fff" />
+            </View>
+            <Text style={styles.attachText}>Vídeo</Text>
+            {!isPro && <Text style={styles.proLabel}>PRO</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.attachOption} onPress={pickDocument}>
+            <View style={[styles.attachIcon, { backgroundColor: isPro ? '#f59e0b' : '#4b5563' }]}>
+              <Ionicons name="document" size={24} color="#fff" />
+            </View>
+            <Text style={styles.attachText}>Documento</Text>
+            {!isPro && <Text style={styles.proLabel}>PRO</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Input Area */}
       <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
@@ -614,6 +738,9 @@ export default function ChatScreen() {
           </View>
         ) : (
           <>
+            <TouchableOpacity style={styles.attachButton} onPress={() => setShowAttachMenu(!showAttachMenu)}>
+              <Ionicons name="add-circle" size={28} color={isPro ? '#10b981' : '#6b7280'} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.micButton} onPress={startRecording}>
               <Ionicons name="mic" size={24} color="#10b981" />
             </TouchableOpacity>
@@ -622,13 +749,13 @@ export default function ChatScreen() {
               placeholder="Mensagem..."
               placeholderTextColor="#6b7280"
               value={inputText}
-              onChangeText={setInputText}
+              onChangeText={handleInputChange}
               multiline
               maxLength={1000}
             />
             <TouchableOpacity
               style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-              onPress={sendMessage}
+              onPress={handleSendText}
               disabled={!inputText.trim()}
             >
               <Ionicons name="send" size={20} color={inputText.trim() ? '#000' : '#666'} />
@@ -641,308 +768,66 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0a',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  nicknameModal: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#9ca3af',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  nicknameInput: {
-    backgroundColor: '#0a0a0a',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    fontSize: 16,
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  enterButton: {
-    backgroundColor: '#10b981',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  enterButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  modalHint: {
-    fontSize: 12,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
-    backgroundColor: '#0a0a0a',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerCenter: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
-    marginRight: 8,
-  },
-  statusDotActive: {
-    backgroundColor: '#10b981',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 1,
-  },
-  proBadge: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  proBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#000',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  shareButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#10b981',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  optionsButton: {
-    padding: 8,
-  },
-  optionsMenu: {
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-    paddingVertical: 8,
-  },
-  optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  optionText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  messagesList: {
-    padding: 16,
-    flexGrow: 1,
-  },
-  systemMessage: {
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  systemMessageText: {
-    fontSize: 12,
-    color: '#6b7280',
-    backgroundColor: '#1a1a1a',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  messageBubble: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 16,
-    marginBottom: 8,
-  },
-  ownMessage: {
-    backgroundColor: '#10b981',
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
-  },
-  otherMessage: {
-    backgroundColor: '#1a1a1a',
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
-  },
-  senderName: {
-    fontSize: 11,
-    color: '#10b981',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  messageText: {
-    color: '#fff',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  ownMessageText: {
-    color: '#000',
-  },
-  countdownContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-    gap: 4,
-  },
-  countdownText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  audioButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  audioWaveform: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  waveBar: {
-    width: 3,
-    borderRadius: 2,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 80,
-  },
-  emptyText: {
-    color: '#6b7280',
-    fontSize: 16,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    color: '#4b5563',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
-    backgroundColor: '#0a0a0a',
-  },
-  micButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1a1a1a',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  textInput: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginHorizontal: 8,
-    color: '#fff',
-    fontSize: 15,
-    maxHeight: 100,
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#10b981',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#1a1a1a',
-  },
-  recordingContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  recordingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  recordingDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#ef4444',
-  },
-  recordingText: {
-    color: '#ef4444',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  stopButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#ef4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  nicknameModal: { backgroundColor: '#1a1a1a', borderRadius: 20, padding: 24, width: '100%', maxWidth: 340, borderWidth: 1, borderColor: '#333' },
+  modalTitle: { fontSize: 24, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 8 },
+  modalSubtitle: { fontSize: 14, color: '#9ca3af', textAlign: 'center', marginBottom: 24 },
+  nicknameInput: { backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: '#333', borderRadius: 12, paddingVertical: 16, paddingHorizontal: 20, fontSize: 16, color: '#fff', textAlign: 'center', marginBottom: 16 },
+  enterButton: { backgroundColor: '#10b981', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  enterButtonText: { color: '#000', fontSize: 16, fontWeight: '700', letterSpacing: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', backgroundColor: '#0a0a0a' },
+  backButton: { padding: 8 },
+  headerCenter: { flex: 1, marginLeft: 8 },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginRight: 8 },
+  statusDotActive: { backgroundColor: '#10b981' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', letterSpacing: 1 },
+  proBadge: { backgroundColor: '#f59e0b', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
+  proBadgeText: { fontSize: 10, fontWeight: '800', color: '#000' },
+  headerSubtitle: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+  shareButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  optionsButton: { padding: 8 },
+  optionsMenu: { backgroundColor: '#1a1a1a', borderBottomWidth: 1, borderBottomColor: '#333', paddingVertical: 8 },
+  optionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, gap: 12 },
+  optionText: { color: '#fff', fontSize: 14 },
+  typingIndicator: { backgroundColor: '#1a1a1a', paddingVertical: 8, paddingHorizontal: 16 },
+  typingText: { color: '#10b981', fontSize: 13, fontStyle: 'italic' },
+  messagesList: { padding: 16, flexGrow: 1 },
+  systemMessage: { alignItems: 'center', marginVertical: 8 },
+  systemMessageText: { fontSize: 12, color: '#6b7280', backgroundColor: '#1a1a1a', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 },
+  messageBubble: { maxWidth: '80%', padding: 12, borderRadius: 16, marginBottom: 8 },
+  ownMessage: { backgroundColor: '#10b981', alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  otherMessage: { backgroundColor: '#1a1a1a', alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+  senderName: { fontSize: 11, color: '#10b981', fontWeight: '600', marginBottom: 4 },
+  messageText: { color: '#fff', fontSize: 15, lineHeight: 22 },
+  ownMessageText: { color: '#000' },
+  countdownContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', gap: 4 },
+  countdownText: { fontSize: 11, fontWeight: '600' },
+  audioButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  audioWaveform: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  waveBar: { width: 3, borderRadius: 2 },
+  messageImage: { width: 200, height: 150, borderRadius: 8 },
+  videoContainer: { alignItems: 'center', padding: 16 },
+  videoText: { color: '#fff', marginTop: 8, fontSize: 12 },
+  documentContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  documentText: { color: '#fff', fontSize: 13, flex: 1 },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 },
+  emptyText: { color: '#6b7280', fontSize: 16, marginTop: 16 },
+  attachMenu: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#1a1a1a', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#333' },
+  attachOption: { alignItems: 'center' },
+  attachIcon: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  attachText: { color: '#fff', fontSize: 12 },
+  proLabel: { color: '#f59e0b', fontSize: 10, fontWeight: '700', marginTop: 2 },
+  inputContainer: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#1a1a1a', backgroundColor: '#0a0a0a' },
+  attachButton: { padding: 8 },
+  micButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
+  textInput: { flex: 1, backgroundColor: '#1a1a1a', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, marginHorizontal: 8, color: '#fff', fontSize: 15, maxHeight: 100 },
+  sendButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'center' },
+  sendButtonDisabled: { backgroundColor: '#1a1a1a' },
+  recordingContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  recordingIndicator: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  recordingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#ef4444' },
+  recordingText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
+  stopButton: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#ef4444', justifyContent: 'center', alignItems: 'center' },
 });
