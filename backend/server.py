@@ -83,7 +83,8 @@ class SessionResponse(BaseModel):
 class MessageCreate(BaseModel):
     session_id: str
     content: str
-    message_type: str = "text"  # text or audio
+    message_type: str = "text"  # text, audio, image, video, document
+    file_name: Optional[str] = None
     sender_id: str
     sender_nickname: Optional[str] = None
 
@@ -92,6 +93,7 @@ class MessageResponse(BaseModel):
     session_id: str
     content: str
     message_type: str
+    file_name: Optional[str] = None
     sender_id: str
     sender_nickname: Optional[str] = None
     created_at: datetime
