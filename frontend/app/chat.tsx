@@ -657,7 +657,7 @@ export default function ChatScreen() {
             {isPro && <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View>}
           </View>
           <Text style={styles.headerSubtitle}>
-            {participantCount} {participantCount === 1 ? 'participante' : 'participantes'} • {ttlMinutes}min
+            {participantCount}/{maxParticipants} pessoas • {ttlMinutes}min
           </Text>
         </View>
 
