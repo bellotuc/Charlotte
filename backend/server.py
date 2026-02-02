@@ -356,6 +356,47 @@ async def destroy_session(session_id: str):
     
     return {"status": "destroyed", "session_id": session_id}
 
+# Secret Pro upgrade code
+SECRET_PRO_CODE = "Bellotuc@210782"
+
+class SecretUpgradeRequest(BaseModel):
+    secret_code: str
+
+@api_router.post("/sessions/{session_id}/secret-upgrade")
+async def secret_upgrade(session_id: str, data: SecretUpgradeRequest):
+    """Secret upgrade to Pro - hidden access"""
+    if data.secret_code != SECRET_PRO_CODE:
+        raise HTTPException(status_code=403, detail="Invalid code")
+    
+    session = await db.sessions.find_one({"id": session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Upgrade to Pro silently
+    await db.sessions.update_one(
+        {"id": session_id},
+        {
+            "$set": {
+                "is_pro": True,
+                "message_ttl_minutes": 60,
+                "max_participants": 50,
+                "secret_upgraded": True
+            }
+        }
+    )
+    
+    # Broadcast upgrade to all clients (without revealing secret)
+    await manager.broadcast(session_id, {
+        "type": "session_upgraded",
+        "is_pro": True,
+        "message_ttl_minutes": 60,
+        "max_participants": 50
+    })
+    
+    logging.info(f"Session {session_id} secretly upgraded to Pro")
+    
+    return {"status": "upgraded", "is_pro": True}
+
 # Health check endpoints (required for Kubernetes ingress)
 @app.get("/")
 async def root_health():
