@@ -8,10 +8,9 @@
     "scheme": "charlotte",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "owner": "SEU_USUARIO_EXPO",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.seudominio.charlotte",
+      "bundleIdentifier": "com.charlotte.chat",
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
@@ -37,7 +36,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.seudominio.charlotte",
+      "package": "com.charlotte.chat",
       "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -78,27 +77,10 @@
         {
           "iCloudContainerEnvironment": "Production"
         }
-      ],
-      [
-        "expo-screen-capture",
-        {
-          "isEnabled": true
-        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "SEU_PROJECT_ID_AQUI"
-      }
-    },
-    "updates": {
-      "url": "https://u.expo.dev/SEU_PROJECT_ID_AQUI"
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
     }
   }
 }
