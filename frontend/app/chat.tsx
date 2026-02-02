@@ -850,6 +850,8 @@ const styles = StyleSheet.create({
   optionsMenu: { backgroundColor: '#1a1a1a', borderBottomWidth: 1, borderBottomColor: '#333', paddingVertical: 8 },
   optionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, gap: 12 },
   optionText: { color: '#fff', fontSize: 14 },
+  destroyOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, gap: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', marginTop: 8, borderTopWidth: 1, borderTopColor: '#333' },
+  destroyText: { color: '#ef4444', fontSize: 14, fontWeight: '700' },
   typingIndicator: { backgroundColor: '#1a1a1a', paddingVertical: 8, paddingHorizontal: 16 },
   typingText: { color: '#10b981', fontSize: 13, fontStyle: 'italic' },
   messagesList: { padding: 16, flexGrow: 1 },
