@@ -757,6 +757,15 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 2,
   },
+  shareButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#10b981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
   optionsButton: {
     padding: 8,
   },
