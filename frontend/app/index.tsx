@@ -101,7 +101,7 @@ export default function HomeScreen() {
         <View style={styles.timerBadge}>
           <Ionicons name="time-outline" size={16} color="#10b981" />
           <Text style={styles.timerText}>
-            5 minutos grátis. 30 minutos no modo Pro.
+            10 minutos grátis. 60 minutos no modo Pro.
           </Text>
         </View>
 
@@ -145,7 +145,7 @@ export default function HomeScreen() {
           <FeatureCard
             icon="timer"
             title="Auto-Destrutivo"
-            description="Mensagens desaparecem após 5 minutos (Free) ou 30 minutos (Pro)."
+            description="Mensagens desaparecem após 10 minutos (Free) ou 60 minutos (Pro)."
           />
           <FeatureCard
             icon="eye-off"
