@@ -128,9 +128,9 @@ async def root():
 async def get_config():
     return {
         "stripe_publishable_key": STRIPE_PUBLISHABLE_KEY,
-        "pro_price": 999,  # $9.99 in cents
-        "free_ttl_minutes": 5,
-        "pro_ttl_minutes": 30
+        "pro_price": 999,  # R$9.99 in cents
+        "free_ttl_minutes": 10,
+        "pro_ttl_minutes": 60
     }
 
 @api_router.post("/sessions", response_model=SessionResponse)
