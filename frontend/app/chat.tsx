@@ -444,21 +444,45 @@ export default function ChatScreen() {
       return;
     }
 
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (permission.status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Permita o acesso à câmera.');
-      return;
-    }
+    try {
+      // Request camera permission
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (cameraPermission.status !== 'granted') {
+        // If camera permission denied, try to pick from gallery
+        const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (mediaPermission.status !== 'granted') {
+          Alert.alert('Permissão necessária', 'Permita o acesso à câmera ou galeria.');
+          return;
+        }
+        // Use gallery as fallback
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.7,
+          base64: true,
+        });
+        
+        if (!result.canceled && result.assets[0].base64) {
+          const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+          await sendMessage(dataUri, 'image');
+        }
+      } else {
+        // Use camera directly
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.7,
+          base64: true,
+          allowsEditing: true,
+        });
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets[0].base64) {
-      const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      await sendMessage(dataUri, 'image');
+        if (!result.canceled && result.assets[0].base64) {
+          const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+          await sendMessage(dataUri, 'image');
+        }
+      }
+    } catch (e) {
+      console.error('Error taking photo:', e);
+      Alert.alert('Erro', 'Não foi possível acessar a câmera.');
     }
     setShowAttachMenu(false);
   };
@@ -469,24 +493,50 @@ export default function ChatScreen() {
       return;
     }
 
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (permission.status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Permita o acesso à câmera.');
-      return;
-    }
+    try {
+      // Request camera permission
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (cameraPermission.status !== 'granted') {
+        // If camera permission denied, try to pick from gallery
+        const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (mediaPermission.status !== 'granted') {
+          Alert.alert('Permissão necessária', 'Permita o acesso à câmera ou galeria.');
+          return;
+        }
+        // Use gallery as fallback
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+          quality: 0.5,
+        });
+        
+        if (!result.canceled && result.assets[0].uri) {
+          const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, { 
+            encoding: FileSystem.EncodingType.Base64 
+          });
+          const dataUri = `data:video/mp4;base64,${base64}`;
+          await sendMessage(dataUri, 'video');
+        }
+      } else {
+        // Use camera directly
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+          videoMaxDuration: 30,
+          quality: 0.5,
+          allowsEditing: true,
+        });
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      videoMaxDuration: 30,
-      quality: 0.5,
-    });
-
-    if (!result.canceled && result.assets[0].uri) {
-      const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, { 
-        encoding: FileSystem.EncodingType.Base64 
-      });
-      const dataUri = `data:video/mp4;base64,${base64}`;
-      await sendMessage(dataUri, 'video');
+        if (!result.canceled && result.assets[0].uri) {
+          const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, { 
+            encoding: FileSystem.EncodingType.Base64 
+          });
+          const dataUri = `data:video/mp4;base64,${base64}`;
+          await sendMessage(dataUri, 'video');
+        }
+      }
+    } catch (e) {
+      console.error('Error recording video:', e);
+      Alert.alert('Erro', 'Não foi possível acessar a câmera.');
     }
     setShowAttachMenu(false);
   };
