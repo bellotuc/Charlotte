@@ -214,6 +214,7 @@ export default function ChatScreen() {
             addSystemMessage(`🟢 ${data.nickname || 'Alguém'} entrou na conversa`);
             Vibration.vibrate([0, 100, 50, 100]);
             if (data.count) setParticipantCount(data.count);
+            if (data.max_participants) setMaxParticipants(data.max_participants);
           } else if (data.type === 'user_left') {
             addSystemMessage(`🔴 ${data.nickname || 'Alguém'} saiu da conversa`);
             if (data.count) setParticipantCount(data.count);
@@ -232,8 +233,9 @@ export default function ChatScreen() {
           } else if (data.type === 'session_upgraded') {
             setIsPro(true);
             setTtlMinutes(60);
-            addSystemMessage('🎉 Sessão atualizada para PRO! Mensagens agora duram 60 minutos.');
-            Alert.alert('Upgrade realizado!', 'Suas mensagens agora duram 60 minutos!');
+            setMaxParticipants(50);
+            addSystemMessage('🎉 Sessão PRO! 60 minutos e até 50 participantes.');
+            Alert.alert('Upgrade realizado!', 'Mensagens duram 60 minutos e até 50 participantes!');
           } else if (data.type === 'participant_update') {
             setParticipantCount(data.count);
           }
