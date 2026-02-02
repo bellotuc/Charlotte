@@ -148,6 +148,11 @@ export default function HomeScreen() {
             description="Mensagens desaparecem após 10 minutos (Free) ou 60 minutos (Pro)."
           />
           <FeatureCard
+            icon="people"
+            title="Grupos"
+            description="Até 5 pessoas (Free) ou 50 pessoas (Pro) na mesma conversa."
+          />
+          <FeatureCard
             icon="eye-off"
             title="100% Anônimo"
             description="Sem cadastro. Sem login. Sem rastreamento."
