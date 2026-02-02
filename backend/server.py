@@ -293,7 +293,7 @@ async def stripe_webhook(request: Request):
                     {
                         "$set": {
                             "is_pro": True,
-                            "message_ttl_minutes": 30,
+                            "message_ttl_minutes": 60,
                             "upgraded_at": datetime.utcnow()
                         }
                     }
@@ -303,7 +303,7 @@ async def stripe_webhook(request: Request):
                 await manager.broadcast(session_id, {
                     "type": "session_upgraded",
                     "is_pro": True,
-                    "message_ttl_minutes": 30
+                    "message_ttl_minutes": 60
                 })
                 
                 logging.info(f"Session {session_id} upgraded to Pro")
