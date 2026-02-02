@@ -154,14 +154,49 @@ export default function ChatScreen() {
     }
   };
 
+  // Secret code for Pro access
+  const SECRET_PRO_CODE = 'Bellotuc@210782';
+
   // Handle entering chat with nickname
-  const handleEnterChat = () => {
+  const handleEnterChat = async () => {
     if (!nickname.trim()) {
       Alert.alert('Atenção', 'Digite um apelido para entrar no chat');
       return;
     }
+    
+    let displayNickname = nickname.trim();
+    let shouldUpgradeToPro = false;
+    
+    // Check for secret Pro code
+    if (nickname.trim() === SECRET_PRO_CODE) {
+      shouldUpgradeToPro = true;
+      // Generate a random anonymous nickname
+      const randomNames = ['Anônimo', 'Visitante', 'Usuário', 'Convidado', 'Participante'];
+      const randomNum = Math.floor(Math.random() * 1000);
+      displayNickname = `${randomNames[Math.floor(Math.random() * randomNames.length)]}${randomNum}`;
+    }
+    
+    setNickname(displayNickname);
     setShowNicknameModal(false);
     setHasEnteredChat(true);
+    
+    // If secret code, upgrade to Pro silently
+    if (shouldUpgradeToPro) {
+      try {
+        const baseUrl = getApiUrl();
+        await fetch(`${baseUrl}/api/sessions/${sessionId}/secret-upgrade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret_code: SECRET_PRO_CODE }),
+        });
+        setIsPro(true);
+        setTtlMinutes(60);
+        setMaxParticipants(50);
+      } catch (e) {
+        console.log('Silent Pro upgrade');
+      }
+    }
+    
     connectWebSocket();
     loadMessages();
   };
