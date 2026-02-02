@@ -187,6 +187,16 @@ export default function ChatScreen() {
         try {
           const data = JSON.parse(event.data);
           
+          // Handle session full error
+          if (data.type === 'error' && data.code === 'SESSION_FULL') {
+            Alert.alert(
+              'Sessão Lotada',
+              data.message || `Máximo de ${data.max_participants} participantes atingido.`,
+              [{ text: 'Voltar', onPress: () => router.back() }]
+            );
+            return;
+          }
+          
           if (data.type === 'new_message') {
             const msg = data.message;
             msg.created_at = msg.created_at || new Date().toISOString();
